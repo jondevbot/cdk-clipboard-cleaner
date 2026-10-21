@@ -59,9 +59,16 @@ def _file_mode(in_path: Path, out_path: Path) -> int:
 
 def _clipboard_mode() -> int:
     from app.clipboard_win import get_text, set_text
+    from app.screen_copy import screen_copy_to_html
 
     text = get_text()
-    cleaned = _transform(text)
+    if is_screen_copy(text):
+        cleaned = screen_copy_to_text(text)
+        html = screen_copy_to_html(text)
+        if cleaned:
+            set_text(cleaned, html=html)
+        return 0
+    cleaned = clean_text(text)
     if not cleaned:
         return 0
     set_text(cleaned)

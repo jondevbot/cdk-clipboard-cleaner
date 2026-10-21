@@ -21,15 +21,20 @@ Number: Q000001                         parts@example.test COMMENT
 def test_screen_copy_aligns_prices_when_bin_is_blank():
     text = screen_copy_to_text(SCREEN)
     assert "EXAMPLE MOTORS" in text
+    assert "Addr:" not in text
+    assert "Phone:" not in text
+    assert "Sale Type:" not in text
     assert "BEACH" not in text
     header = next(ln for ln in text.splitlines() if "LIST$" in ln)
     rows = [ln for ln in text.splitlines() if "213-" in ln]
+    assert header.split("\t") == ["QTY", "PART-NO.", "DESC", "LIST$", "COST$"]
     assert len(rows) == 3
     for ln, list_p, cost in (
         (rows[0], "204.00", "142.80"),
         (rows[1], "32.00", "22.40"),
         (rows[2], "388.00", "271.60"),
     ):
-        assert header.index("LIST$") + len("LIST$") == ln.index(list_p) + len(list_p)
-        assert header.index("COST$") + len("COST$") == ln.index(cost) + len(cost)
+        cols = ln.split("\t")
+        assert cols[3] == list_p
+        assert cols[4] == cost
     assert "TRIM BAR" in rows[2]

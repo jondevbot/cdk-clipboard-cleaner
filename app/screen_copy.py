@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.quote import PART_RE, Quote, format_quote
+from app.quote import PART_RE, Quote, format_quote, format_quote_html
 
 _HEADER_MARKERS = ("PART-NO", "LIST", "SALE")
 
@@ -111,3 +111,10 @@ def screen_copy_to_text(text: str) -> str:
     if not quote.lines:
         return ""
     return format_quote(quote)
+
+
+def screen_copy_to_html(text: str) -> str:
+    quote = parse_screen_copy(text)
+    if not quote.lines:
+        return ""
+    return format_quote_html(quote)

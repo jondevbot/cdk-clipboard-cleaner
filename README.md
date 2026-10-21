@@ -20,9 +20,11 @@ Ref # Q000001
 Cust# 10000
 Name: EXAMPLE MOTORS
 
- QTY  PART-NO.       DESC       LIST$    COST$
-   1  156-780-00-75  SLIDING   370.00   251.60
+QTY	PART-NO.	DESC	LIST$	COST$
+1	156-780-00-75	SLIDING	370.00	251.60
 ```
+
+Pasting into email uses a borderless table, so the prices stay in their columns. Address and phone are left off so the mail client does not turn them into links.
 
 ## Example
 

@@ -229,6 +229,11 @@ def _col(value: str, width: int, align: str) -> str:
 
 
 def format_quote(quote: Quote) -> str:
+    """Short email paste: Ref, Cust, Name, then tabbed columns.
+
+    Address, phone, and the other screen labels are omitted. Email clients
+    turn those into links and collapse the price columns into one underlined line.
+    """
     lines: list[str] = []
     if quote.ref:
         lines.append(f"Ref # {quote.ref}")
@@ -236,48 +241,72 @@ def format_quote(quote: Quote) -> str:
         lines.append(f"Cust# {quote.cust}")
     if quote.name:
         lines.append(f"Name: {quote.name}")
-    if quote.addr:
-        lines.append(f"Addr: {quote.addr}")
-    if quote.city:
-        lines.append(f"C/S/Z: {quote.city}")
-    if quote.phone:
-        lines.append(f"Phone: {quote.phone}")
-    if quote.email:
-        lines.append(f"Email: {quote.email}")
-    if quote.emp:
-        lines.append(f"Emp: {quote.emp}")
-    if quote.via:
-        lines.append(f"Via: {quote.via}")
-    if quote.sale_type:
-        lines.append(f"Sale Type: {quote.sale_type}")
-    if quote.price_code:
-        lines.append(f"Price Code: {quote.price_code}")
     if quote.lines:
         if lines:
             lines.append("")
-        desc_w = max(4, max(len(r[2]) for r in quote.lines))
-        part_w = max(8, max(len(r[1]) for r in quote.lines))
-        # right-align money so LIST$ ends on the list figures and COST$ on cost
-        header = "  ".join(
-            [
-                _col("QTY", 4, "right"),
-                _col("PART-NO.", part_w, "left"),
-                _col("DESC", desc_w, "left"),
-                _col("LIST$", 7, "right"),
-                _col("COST$", 7, "right"),
-            ]
-        )
-        lines.append(header.rstrip())
+        lines.append("\t".join(["QTY", "PART-NO.", "DESC", "LIST$", "COST$"]))
         for qty, part, desc, list_price, cost in quote.lines:
-            lines.append(
-                "  ".join(
-                    [
-                        _col(qty, 4, "right"),
-                        _col(part, part_w, "left"),
-                        _col(desc, desc_w, "left"),
-                        _col(list_price, 7, "right"),
-                        _col(cost, 7, "right"),
-                    ]
-                ).rstrip()
-            )
+            lines.append("\t".join([qty, part, desc, list_price, cost]))
     return "\n".join(lines)
+
+
+def _esc(value: str) -> str:
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def format_quote_html(quote: Quote) -> str:
+    """Borderless table so an email paste keeps LIST$ over list and COST$ over cost."""
+    bits: list[str] = []
+    if quote.ref:
+        bits.append(f"Ref # {_esc(quote.ref)}<br>")
+    if quote.cust:
+        bits.append(f"Cust# {_esc(quote.cust)}<br>")
+    if quote.name:
+        bits.append(f"Name: {_esc(quote.name)}")
+    if not quote.lines:
+        return "".join(bits)
+    header_cells = (
+        ("QTY", "left"),
+        ("PART-NO.", "left"),
+        ("DESC", "left"),
+        ("LIST$", "right"),
+        ("COST$", "right"),
+    )
+    rows = [
+        "<tr>"
+        + "".join(
+            f'<td style="padding:1px 32px 6px 0;text-align:{align}">{label}</td>'
+            for label, align in header_cells
+        )
+        + "</tr>"
+    ]
+    for qty, part, desc, list_price, cost in quote.lines:
+        values = (qty, part, desc, list_price, cost)
+        rows.append(
+            "<tr>"
+            + "".join(
+                f'<td style="padding:1px 32px 1px 0;text-align:{align}">{_esc(value)}</td>'
+                for value, (_label, align) in zip(values, header_cells)
+            )
+            + "</tr>"
+        )
+    table = (
+        '<table cellspacing="0" cellpadding="0" '
+        'style="border-collapse:collapse;font-family:Calibri,Segoe UI,sans-serif;font-size:11pt">'
+        + "".join(rows)
+        + "</table>"
+    )
+    head = "".join(bits)
+    if head:
+        head += "<br><br>"
+    return (
+        '<div style="font-family:Calibri,Segoe UI,sans-serif;font-size:11pt">'
+        + head
+        + table
+        + "</div>"
+    )

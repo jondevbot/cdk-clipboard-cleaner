@@ -127,7 +127,36 @@ def get_text() -> str:
         user32.CloseClipboard()
 
 
-def set_text(text: str) -> None:
+def _html_clipboard(fragment: str) -> bytes:
+    """Windows HTML Format. Offsets are byte offsets into this UTF-8 payload."""
+    fragment_bytes = fragment.encode("utf-8")
+    start_marker = b"<!--StartFragment-->"
+    end_marker = b"<!--EndFragment-->"
+    head = (
+        "Version:0.9\r\n"
+        "StartHTML:{start_html:08d}\r\n"
+        "EndHTML:{end_html:08d}\r\n"
+        "StartFragment:{start_frag:08d}\r\n"
+        "EndFragment:{end_frag:08d}\r\n"
+    )
+    # Header length is fixed because the numbers are zero-padded to 8 digits.
+    header = head.format(start_html=0, end_html=0, start_frag=0, end_frag=0).encode("ascii")
+    prefix = b"<html><body>\r\n" + start_marker
+    suffix = end_marker + b"\r\n</body></html>"
+    start_html = len(header)
+    start_frag = start_html + len(prefix)
+    end_frag = start_frag + len(fragment_bytes)
+    end_html = end_frag + len(suffix)
+    header = head.format(
+        start_html=start_html,
+        end_html=end_html,
+        start_frag=start_frag,
+        end_frag=end_frag,
+    ).encode("ascii")
+    return header + prefix + fragment_bytes + suffix
+
+
+def set_text(text: str, html: str | None = None) -> None:
     payload = text.replace("\n", "\r\n")
     data = payload.encode("utf-16-le") + b"\x00\x00"
     handle = kernel32.GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, len(data))
@@ -140,12 +169,31 @@ def set_text(text: str) -> None:
         ctypes.memmove(ptr, data, len(data))
     finally:
         kernel32.GlobalUnlock(handle)
+    html_handle = None
+    html_fmt = 0
+    if html:
+        html_bytes = _html_clipboard(html)
+        html_handle = kernel32.GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, len(html_bytes) + 1)
+        if not html_handle:
+            raise ClipboardError("GlobalAlloc failed")
+        hptr = kernel32.GlobalLock(html_handle)
+        if not hptr:
+            raise ClipboardError("GlobalLock failed")
+        try:
+            ctypes.memmove(hptr, html_bytes, len(html_bytes))
+        finally:
+            kernel32.GlobalUnlock(html_handle)
+        html_fmt = user32.RegisterClipboardFormatW("HTML Format")
     _open()
     try:
         if not user32.EmptyClipboard():
             raise ClipboardError("EmptyClipboard failed")
         if not user32.SetClipboardData(CF_UNICODETEXT, handle):
             raise ClipboardError("SetClipboardData failed")
-        handle = None  # clipboard now owns the HGLOBAL
+        handle = None
+        if html_handle:
+            if not user32.SetClipboardData(html_fmt, html_handle):
+                raise ClipboardError("SetClipboardData HTML failed")
+            html_handle = None
     finally:
         user32.CloseClipboard()
