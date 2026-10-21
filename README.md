@@ -1,6 +1,28 @@
 # CDK Clipboard Cleaner
 
-Windows click-to-run tool. Copies CDK part numbers off the clipboard, strips hyphens and spaces, writes the cleaned list back, and exits.
+Windows click-to-run tool.
+
+- A CDK screen copy: aligned quote. `LIST$` sits on the list price. `COST$` sits on the sale price.
+- A plain part list: hyphens and spaces stripped. Leading zeros stay.
+
+## Usage
+
+1. Copy a CDK screen, or copy a part list.
+2. Double-click `CDK_Clipboard_Cleaner.exe`.
+3. Paste.
+
+No window stays open. An empty clipboard is left alone.
+
+## Example quote
+
+```
+Ref # Q000001
+Cust# 10000
+Name: EXAMPLE MOTORS
+
+ QTY  PART-NO.       DESC       LIST$    COST$
+   1  156-780-00-75  SLIDING   370.00   251.60
+```
 
 ## Example
 
@@ -31,14 +53,6 @@ After launching the app:
 ```
 
 Leading zeros are kept. Empty lines are dropped.
-
-## Usage
-
-1. Copy the part list in CDK.
-2. Double-click `CDK_Clipboard_Cleaner.exe`.
-3. Paste into the other system.
-
-No window stays open. If the clipboard is empty, the app exits without changing it.
 
 ## Dev
 

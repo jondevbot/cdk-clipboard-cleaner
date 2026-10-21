@@ -1,12 +1,18 @@
-# PyInstaller spec — Windows onefile, no Qt, windowed (no console flash).
-# CLI sidecars stay onefile (wine-pyside-windows-bundle).
+# PyInstaller spec — Windows onefile, no Qt, no OCR. Windowed click-to-exit.
 
 a = Analysis(
     ["run_app.py"],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=["app", "app.cleaner", "app.clipboard_win", "app.main"],
+    hiddenimports=[
+        "app",
+        "app.cleaner",
+        "app.clipboard_win",
+        "app.main",
+        "app.quote",
+        "app.screen_copy",
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -19,6 +25,9 @@ a = Analysis(
         "PyQt6",
         "numpy",
         "PIL",
+        "cv2",
+        "onnxruntime",
+        "rapidocr_onnxruntime",
     ],
     noarchive=False,
 )

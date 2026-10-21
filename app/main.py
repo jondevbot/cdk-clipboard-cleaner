@@ -1,4 +1,8 @@
-"""Click → clean CDK part numbers on the clipboard → exit."""
+"""Click → clean CDK clipboard → exit.
+
+A CDK screen copy becomes an aligned quote (LIST$ over list, COST$ over sale).
+A plain part list still loses hyphens and spaces. Leading zeros stay.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +11,7 @@ import sys
 from pathlib import Path
 
 from app.cleaner import clean_text
+from app.screen_copy import is_screen_copy, screen_copy_to_text
 
 SAMPLE_IN = """906-697-60-98-64
    906-887-00-72
@@ -39,9 +44,15 @@ def _self_test() -> int:
     return 0 if ok else 1
 
 
+def _transform(text: str) -> str:
+    if is_screen_copy(text):
+        return screen_copy_to_text(text)
+    return clean_text(text)
+
+
 def _file_mode(in_path: Path, out_path: Path) -> int:
     text = in_path.read_text(encoding="utf-8")
-    cleaned = clean_text(text)
+    cleaned = _transform(text)
     out_path.write_text(cleaned, encoding="utf-8", newline="\n")
     return 0 if cleaned else 1
 
@@ -49,8 +60,8 @@ def _file_mode(in_path: Path, out_path: Path) -> int:
 def _clipboard_mode() -> int:
     from app.clipboard_win import get_text, set_text
 
-    raw = get_text()
-    cleaned = clean_text(raw)
+    text = get_text()
+    cleaned = _transform(text)
     if not cleaned:
         return 0
     set_text(cleaned)
