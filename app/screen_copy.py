@@ -97,8 +97,10 @@ def parse_screen_copy(text: str) -> Quote:
     indexes = _indexes(header) if header else {}
     quote = Quote()
     blob = "\n".join(lines)
-    ref = re.search(r"\bQ\d{3,}\b", blob, re.I)
-    if ref:
+    number = re.search(r"\bNumber\s*:\s*([A-Z0-9]+)", blob, re.I)
+    if number:
+        quote.ref = number.group(1).upper()
+    elif (ref := re.search(r"\bQ\d{3,}\b", blob, re.I)):
         quote.ref = ref.group(0).upper()
     cust = re.search(r"\bCust\s*:?\s*(\d+)", blob, re.I)
     if cust:

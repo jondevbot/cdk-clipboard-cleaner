@@ -228,15 +228,22 @@ def _col(value: str, width: int, align: str) -> str:
     return value.ljust(width)
 
 
+def _ref_line(ref: str) -> str:
+    if ref.upper().startswith("Q"):
+        return f"Ref # {ref}"
+    return f"Number: {ref}"
+
+
 def format_quote(quote: Quote) -> str:
     """Short email paste: Ref, Cust, Name, then tabbed columns.
 
     Address, phone, and the other screen labels are omitted. Email clients
     turn those into links and collapse the price columns into one underlined line.
+    A Q-number stays `Ref #`. A plain invoice number is `Number:`.
     """
     lines: list[str] = []
     if quote.ref:
-        lines.append(f"Ref # {quote.ref}")
+        lines.append(_ref_line(quote.ref))
     if quote.cust:
         lines.append(f"Cust# {quote.cust}")
     if quote.name:
@@ -263,7 +270,7 @@ def format_quote_html(quote: Quote) -> str:
     """Borderless table so an email paste keeps LIST$ over list and COST$ over cost."""
     bits: list[str] = []
     if quote.ref:
-        bits.append(f"Ref # {_esc(quote.ref)}<br>")
+        bits.append(f"{_esc(_ref_line(quote.ref))}<br>")
     if quote.cust:
         bits.append(f"Cust# {_esc(quote.cust)}<br>")
     if quote.name:

@@ -100,3 +100,11 @@ def test_comp_header_uses_qs_not_so_and_keeps_letter_part():
     assert rows[2].split("\t")[3:] == ["92.00", "74.00"]
     assert rows[3].split("\t") == ["1", "907-914-09-00", "BACKREST", "218.00", "175.00"]
     assert all(row.split("\t")[0] == "1" for row in rows)
+
+
+def test_plain_invoice_number_is_kept():
+    text = COMP_SCREEN.replace("Number: Q000002", "Number: 100001", 1)
+    out = screen_copy_to_text(text)
+    assert out.startswith("Number: 100001\n")
+    assert "Ref # 100001" not in out
+    assert "Q000002" not in out
