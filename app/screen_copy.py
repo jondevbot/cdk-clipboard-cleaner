@@ -1,4 +1,4 @@
-"""Parse a CDK parts-screen text copy. Columns come from the header, not gaps."""
+"""Parse a CDK parts-screen text copy. Columns come from that screen's header."""
 
 from __future__ import annotations
 
@@ -6,12 +6,38 @@ import re
 
 from app.quote import PART_RE, Quote, format_quote, format_quote_html
 
-_HEADER_MARKERS = ("PART-NO", "LIST", "SALE")
+# Sale Type contains "SALE", so the markers have to be on the table header line.
+_SKIP_AFTER_LIST = {"Q.S.", "GPP", "SO"}
+_COST_LABELS = ("SALE", "COMP", "COST", "NET")
+
+
+def _norm_label(label: str) -> str:
+    label = label.upper().rstrip(".")
+    if label in {"Q.S", "QS"}:
+        return "Q.S."
+    if label in {"O.H", "OH"}:
+        return "O.H."
+    return label
+
+
+def _header_labels(header: str) -> list[tuple[str, int]]:
+    found: list[tuple[str, int]] = []
+    for match in re.finditer(r"[A-Za-z][A-Za-z0-9.-]{0,12}", header):
+        found.append((_norm_label(match.group(0)), match.start()))
+    return found
+
+
+def _header_line(lines: list[str]) -> str:
+    for line in lines:
+        labels = {name for name, _pos in _header_labels(line)}
+        if "PART-NO" in labels and "LIST" in labels:
+            return line
+    return ""
 
 
 def is_screen_copy(text: str) -> bool:
-    upper = text.upper()
-    return all(marker in upper for marker in _HEADER_MARKERS)
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    return bool(_header_line(lines))
 
 
 def _field(line: str, start: int, end: int) -> str:
@@ -21,14 +47,26 @@ def _field(line: str, start: int, end: int) -> str:
     return chunk.strip(" │|├┤┌┐└┘─-")
 
 
-def _header_indexes(header: str) -> dict[str, int]:
-    labels = ("Q.S.", "PART-NO", "DESC", "O.H.", "BIN", "PRICE6", "LIST", "SALE", "GPP")
-    found: dict[str, int] = {}
-    for label in labels:
-        idx = header.find(label)
-        if idx >= 0:
-            found[label] = idx
-    return found
+def _indexes(header: str) -> dict[str, int]:
+    return {name: pos for name, pos in _header_labels(header)}
+
+
+def _next_label(indexes: dict[str, int], key: str) -> str | None:
+    ordered = sorted(indexes.items(), key=lambda item: item[1])
+    for i, (name, _pos) in enumerate(ordered):
+        if name == key and i + 1 < len(ordered):
+            return ordered[i + 1][0]
+    return None
+
+
+def _cost_key(indexes: dict[str, int]) -> str:
+    for name in _COST_LABELS:
+        if name in indexes:
+            return name
+    nxt = _next_label(indexes, "LIST")
+    if nxt and nxt not in _SKIP_AFTER_LIST:
+        return nxt
+    return ""
 
 
 def _slice(line: str, indexes: dict[str, int], start_key: str, end_key: str | None) -> str:
@@ -55,8 +93,8 @@ def _labeled(text: str, label: str) -> str:
 
 def parse_screen_copy(text: str) -> Quote:
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    header = next((ln for ln in lines if is_screen_copy(ln)), "")
-    indexes = _header_indexes(header) if header else {}
+    header = _header_line(lines)
+    indexes = _indexes(header) if header else {}
     quote = Quote()
     blob = "\n".join(lines)
     ref = re.search(r"\bQ\d{3,}\b", blob, re.I)
@@ -66,41 +104,29 @@ def parse_screen_copy(text: str) -> Quote:
     if cust:
         quote.cust = cust.group(1)
     quote.name = _labeled(blob, "Name")
-    quote.addr = _labeled(blob, "Addr")
-    quote.city = _labeled(blob, r"C\s*/\s*S\s*/\s*Z")
-    phone = re.search(r"(\(?\d{3}\)?\s*\d{3}-?\d{4})", blob)
-    if phone:
-        quote.phone = re.sub(r"\)(?=\d)", ") ", phone.group(1))
-    email = re.search(r"[\w.+-]+@[\w.-]+", blob)
-    if email:
-        quote.email = email.group(0)
-    emp = re.search(r"\bEmp\s*:?\s*(\d+)", blob, re.I)
-    if emp:
-        quote.emp = emp.group(1)
-    quote.via = _labeled(blob, "Via")
-    quote.sale_type = _labeled(blob, "Sale Type")
-    code = re.search(r"Price\s*Code\s*:?\s*(\d+)", blob, re.I)
-    if code:
-        quote.price_code = code.group(1)
-
+    cost_key = _cost_key(indexes)
+    cost_end = _next_label(indexes, cost_key) if cost_key else None
     parsed: list[tuple[str, str, str, str, str]] = []
-    if indexes:
+    if indexes and cost_key:
         oh_at = indexes.get("O.H.", indexes.get("BIN", 10**6))
         for line in lines:
-            if "PART-NO" in line.upper() and "LIST" in line.upper():
+            if line == header or ("PART-NO" in line.upper() and "LIST" in line.upper()):
                 continue
             part_match = PART_RE.search(line)
             if not part_match:
                 continue
             part = part_match.group(0)
-            left = line[: part_match.start()]
-            qty_match = re.search(r"(\d+)\s*$", left)
-            qty = qty_match.group(1) if qty_match else "1"
-            desc = _slice(line, indexes, "DESC", "O.H.")
+            if "Q.S." in indexes:
+                qty = _slice(line, indexes, "Q.S.", _next_label(indexes, "Q.S.")) or "1"
+            else:
+                left = line[: part_match.start()]
+                qty_match = re.search(r"(\d+)\s*$", left)
+                qty = qty_match.group(1) if qty_match else "1"
+            desc = line[part_match.end() : oh_at].strip(" │|-")
             if not desc:
-                desc = line[part_match.end() : oh_at].strip(" │|-")
-            list_price = _slice(line, indexes, "LIST", "SALE")
-            cost = _slice(line, indexes, "SALE", "GPP")
+                desc = _slice(line, indexes, "DESC", "O.H.")
+            list_price = _slice(line, indexes, "LIST", cost_key)
+            cost = _slice(line, indexes, cost_key, cost_end)
             parsed.append((qty, part, desc, list_price, cost))
     quote.lines = parsed
     return quote

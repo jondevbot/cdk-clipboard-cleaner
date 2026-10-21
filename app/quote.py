@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-PART_RE = re.compile(r"\b\d{3}(?:-\d{2,3}){2,5}\b")
+PART_RE = re.compile(r"(?<![A-Z0-9])\d{3}(?:-[A-Z0-9]{2,5}){2,6}(?![A-Z0-9-])", re.I)
 MONEY_RE = re.compile(r"\b\d+\.\d{2}\b")
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+")
 REF_RE = re.compile(r"\bQ\d{3,}\b", re.I)
