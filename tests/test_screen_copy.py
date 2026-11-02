@@ -108,3 +108,22 @@ def test_plain_invoice_number_is_kept():
     assert out.startswith("Number: 100001\n")
     assert "Ref # 100001" not in out
     assert "Q000002" not in out
+
+
+def test_six_digit_part_is_kept():
+    text = """\
+Number: Q000003
+  Cust: 10003
+  Name: EXAMPLE PARTS
+ C/S/Z: SAMPLE, CA 92867-3404
+ Phone: (555)555-0100
+├Q.S.─PART-NO.──────────DESC─────O.H.─BIN─────PRICE6──LIST────SALE────GPP──────┤
+│   2     000000-007580 HEXALOBU    0           11.04    2.40    2.00 30.0     │
+│   1     910-740-75-00 DOOR LOC    0   3000T  295.50  197.00  158.00 25.3     │
+"""
+    out = screen_copy_to_text(text)
+    rows = [ln.split("\t") for ln in out.splitlines() if "\t" in ln and not ln.startswith("QTY")]
+    assert [row[1] for row in rows] == ["000000-007580", "910-740-75-00"]
+    assert rows[0] == ["2", "000000-007580", "HEXALOBU", "2.40", "2.00"]
+    assert "92867-3404" not in out
+    assert "555-0100" not in out

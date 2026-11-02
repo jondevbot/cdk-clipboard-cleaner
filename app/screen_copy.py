@@ -129,6 +129,8 @@ def parse_screen_copy(text: str) -> Quote:
                 desc = _slice(line, indexes, "DESC", "O.H.")
             list_price = _slice(line, indexes, "LIST", cost_key)
             cost = _slice(line, indexes, cost_key, cost_end)
+            if not re.fullmatch(r"\d+\.\d{2}", list_price):
+                continue
             parsed.append((qty, part, desc, list_price, cost))
     quote.lines = parsed
     return quote
